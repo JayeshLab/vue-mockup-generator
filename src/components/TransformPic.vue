@@ -6,6 +6,7 @@
     <template v-for="({ corner }, index) in corners" :key="index">
       <div v-if="index % 2 === 0" class="corner" :style="{ left: corners[index] + 'px', top: corners[index + 1] + 'px' }" @mousedown.stop="onMouseDown(index)"></div>
     </template>
+    <div class="rotator" :style="rotatorStyle" @mousedown.stop="onRotateMouseDown"></div>
   </div>
 </template>
 <script setup>
@@ -14,6 +15,9 @@ import PerspT from "../perspective-transform.js";
 const corners = reactive([100, 100, 300, 100, 100, 300, 300, 300]);
 const isBoxSelected = ref(false);
 const selectedCorner = ref(-1);
+const isRotating = ref(false);
+const initialCorners = reactive([]);
+const boxCenter = reactive({ x: 0, y: 0 });
 const box = useTemplateRef("box");
 const ip = ref({ x: 0, y: 0 });
 
@@ -58,11 +62,33 @@ const boxStyle = computed(() => {
 // Mouse down event for starting the drag
 const onBoxMouseDown = (event) => {
   isBoxSelected.value = true;
-  ip.x = event.clientX;
-  ip.y = event.clientY;
-  console.log("mouseboxdown", ip.x, ip.y);
+  ip.value.x = event.clientX;
+  ip.value.y = event.clientY;
+  console.log("mouseboxdown", ip.value.x, ip.value.y);
 };
 
+const onRotateMouseDown = (event) => {
+  isRotating.value = true;
+  ip.value.x = event.clientX;
+  ip.value.y = event.clientY;
+  Object.assign(initialCorners, corners);
+  boxCenter.x = (corners[0] + corners[2] + corners[4] + corners[6]) / 4;
+  boxCenter.y = (corners[1] + corners[3] + corners[5] + corners[7]) / 4;
+};
+const rotatorStyle = computed(() => {
+  const x = (corners[0] + corners[2]) / 2;
+  const y = (corners[1] + corners[3]) / 2;
+  const edgeVecX = corners[2] - corners[0];
+  const edgeVecY = corners[3] - corners[1];
+  const edgeLength = Math.sqrt(edgeVecX * edgeVecX + edgeVecY * edgeVecY);
+  const perpVecX = -edgeVecY / edgeLength;
+  const perpVecY = edgeVecX / edgeLength;
+  const handleDistance = 30;
+  return {
+    left: x + perpVecX * handleDistance + "px",
+    top: y + perpVecY * handleDistance + "px",
+  };
+});
 const onMouseDown = (index) => {
   selectedCorner.value = index;
   console.log("mousedown");
@@ -70,15 +96,31 @@ const onMouseDown = (index) => {
 const onMouseUp = () => {
   selectedCorner.value = -1;
   isBoxSelected.value = false;
+  isRotating.value = false;
   console.log("mouseup");
 };
 
 const onMouseMove = throttle((event) => {
+  if (isRotating.value) {
+    const { clientX, clientY } = event;
+    const initialAngle = Math.atan2(ip.value.y - boxCenter.y, ip.value.x - boxCenter.x);
+    const currentAngle = Math.atan2(clientY - boxCenter.y, clientX - boxCenter.x);
+    const angle = currentAngle - initialAngle;
+    for (let i = 0; i < initialCorners.length; i += 2) {
+      const x = initialCorners[i];
+      const y = initialCorners[i + 1];
+      const rotatedX = boxCenter.x + (x - boxCenter.x) * Math.cos(angle) - (y - boxCenter.y) * Math.sin(angle);
+      const rotatedY = boxCenter.y + (x - boxCenter.x) * Math.sin(angle) + (y - boxCenter.y) * Math.cos(angle);
+      corners[i] = rotatedX;
+      corners[i + 1] = rotatedY;
+    }
+    return;
+  }
   if (isBoxSelected.value) {
     const { clientX, clientY } = event;
     console.log("mousemove", clientX, clientY);
-    const dx = clientX - ip.x;
-    const dy = clientY - ip.y;
+    const dx = clientX - ip.value.x;
+    const dy = clientY - ip.value.y;
 
     // Update all corners to move the box
     for (let i = 0; i < corners.length; i += 2) {
@@ -86,8 +128,8 @@ const onMouseMove = throttle((event) => {
       corners[i + 1] += dy; // Update y-coordinate
     }
     // Update the initial position
-    ip.x = clientX;
-    ip.y = clientY;
+    ip.value.x = clientX;
+    ip.value.y = clientY;
   }
   if (selectedCorner.value !== -1) {
     const { clientX, clientY } = event;
@@ -131,5 +173,16 @@ const onMouseMove = throttle((event) => {
   cursor: pointer;
   margin-left: -6px;
   margin-top: -6px;
+}
+.rotator {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  background: #ffc107;
+  border: 1px solid #d39e00;
+  border-radius: 50%;
+  cursor: grab;
+  margin-left: -8px;
+  margin-top: -8px;
 }
 </style>
