@@ -6,7 +6,7 @@
     <template v-for="({ corner }, index) in corners" :key="index">
       <div v-if="index % 2 === 0" class="corner" :style="{ left: corners[index] + 'px', top: corners[index + 1] + 'px' }" @mousedown.stop="onMouseDown(index)"></div>
     </template>
-    <div class="rotator" :style="rotatorStyle" @mousedown.stop="onRotateMouseDown"></div>
+    <div class="rotator" :style="rotatorStyle" @mousedown.stop="onRotateMouseDown" style="cursor: crosshair"></div>
   </div>
 </template>
 <script setup>
@@ -83,7 +83,7 @@ const rotatorStyle = computed(() => {
   const edgeLength = Math.sqrt(edgeVecX * edgeVecX + edgeVecY * edgeVecY);
   const perpVecX = -edgeVecY / edgeLength;
   const perpVecY = edgeVecX / edgeLength;
-  const handleDistance = 30;
+  const handleDistance = -30;
   return {
     left: x + perpVecX * handleDistance + "px",
     top: y + perpVecY * handleDistance + "px",
